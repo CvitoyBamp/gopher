@@ -11,7 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/matthewhartstonge/argon2"
 	"io"
-	"log/slog"
+	"log"
 	"net/http"
 	"reflect"
 	"strconv"
@@ -24,14 +24,14 @@ func (bs *BackendServer) registerHandler(w http.ResponseWriter, r *http.Request)
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
-		slog.Error("Bad request body, error: ", err.Error())
+		log.Println("Bad request body, error: ", err.Error())
 		return
 	}
 
 	errUn := json.Unmarshal(body, &registerStruct)
 	if errUn != nil {
 		http.Error(w, errUn.Error(), http.StatusBadRequest)
-		slog.Error("Impossible to unmarshal, error: ", errUn.Error())
+		log.Println("Impossible to unmarshal, error: ", errUn.Error())
 		return
 	}
 
@@ -40,7 +40,7 @@ func (bs *BackendServer) registerHandler(w http.ResponseWriter, r *http.Request)
 	encoded, errEnc := argon.HashEncoded([]byte(registerStruct.Password))
 	if errEnc != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		slog.Error(errEnc.Error())
+		log.Println(errEnc.Error())
 		return
 	}
 
@@ -49,29 +49,29 @@ func (bs *BackendServer) registerHandler(w http.ResponseWriter, r *http.Request)
 		var pgErr *pgconn.PgError
 		if errors.As(errDb, &pgErr) {
 			if pgerrcode.IsIntegrityConstraintViolation(pgErr.Code) {
-				slog.Warn("Impossible to add user to DB, username is already exists.")
+				log.Println("Impossible to add user to DB, username is already exists.")
 				http.Error(w, "Username is already used.", http.StatusConflict)
 				return
 			}
 			http.Error(w, errDb.Error(), http.StatusBadRequest)
-			slog.Error("Impossible to add user to DB, error: ", errDb.Error())
+			log.Println("Impossible to add user to DB, error: ", errDb.Error())
 			return
 		}
 		http.Error(w, errDb.Error(), http.StatusInternalServerError)
-		slog.Error(http.StatusText(http.StatusInternalServerError), errDb.Error())
+		log.Println(http.StatusText(http.StatusInternalServerError), errDb.Error())
 		return
 	}
 
 	token, errJWT := jwt.CreateJWTToken(registerStruct.Username, registerStruct.Password)
 	if errJWT != nil {
 		http.Error(w, errJWT.Error(), http.StatusBadGateway)
-		slog.Error("Can't create Bearer token", errJWT.Error())
+		log.Println("Can't create Bearer token", errJWT.Error())
 		return
 	}
 
 	_, errResp := fmt.Fprintf(w, "Successfully registred, your Bearer token: %s", token)
 	if errResp != nil {
-		slog.Error("Error while response after registration, error: ", errResp.Error())
+		log.Println("Error while response after registration, error: ", errResp.Error())
 	}
 }
 
@@ -81,28 +81,28 @@ func (bs *BackendServer) loginHandler(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
-		slog.Error("Bad request body, error: ", err.Error())
+		log.Println("Bad request body, error: ", err.Error())
 		return
 	}
 
 	errUn := json.Unmarshal(body, &authUser)
 	if errUn != nil {
 		http.Error(w, errUn.Error(), http.StatusBadRequest)
-		slog.Error("Impossible to unmarshal, error: ", errUn.Error())
+		log.Println("Impossible to unmarshal, error: ", errUn.Error())
 		return
 	}
 
 	_, pass, errUser := bs.DB.GetUserData(authUser.Username)
 	if errUser != nil {
 		http.Error(w, "Such user doesn't registered", http.StatusUnauthorized)
-		slog.Error(errUser.Error())
+		log.Println(errUser.Error())
 		return
 	}
 
 	ok, errDecode := argon2.VerifyEncoded([]byte(authUser.Password), []byte(pass))
 	if errDecode != nil {
 		http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
-		slog.Error(errUser.Error())
+		log.Println(errUser.Error())
 		return
 	}
 
@@ -114,13 +114,13 @@ func (bs *BackendServer) loginHandler(w http.ResponseWriter, r *http.Request) {
 	token, errJWT := jwt.CreateJWTToken(authUser.Username, authUser.Password)
 	if errJWT != nil {
 		http.Error(w, errJWT.Error(), http.StatusBadGateway)
-		slog.Error("Can't create Bearer token", errJWT.Error())
+		log.Println("Can't create Bearer token", errJWT.Error())
 		return
 	}
 
 	_, errResp := fmt.Fprintf(w, "Successfully authorized, your refreshed Bearer token: %s", token)
 	if errResp != nil {
-		slog.Error("Error while response after authorize, error: ", errResp.Error())
+		log.Println("Error while response after authorize, error: ", errResp.Error())
 	}
 }
 
@@ -134,7 +134,7 @@ func (bs *BackendServer) postOrdersHandler(w http.ResponseWriter, r *http.Reques
 	orderNum, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
-		slog.Error("Bad request body, error: ", err.Error())
+		log.Println("Bad request body, error: ", err.Error())
 		return
 	}
 
@@ -255,14 +255,14 @@ func (bs *BackendServer) withdrawHandler(w http.ResponseWriter, r *http.Request)
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
-		slog.Error("Bad request body, error: ", err.Error())
+		log.Println("Bad request body, error: ", err.Error())
 		return
 	}
 
 	errUn := json.Unmarshal(body, &withdraw)
 	if errUn != nil {
 		http.Error(w, errUn.Error(), http.StatusBadRequest)
-		slog.Error("Impossible to unmarshal, error: ", errUn.Error())
+		log.Println("Impossible to unmarshal, error: ", errUn.Error())
 		return
 	}
 
