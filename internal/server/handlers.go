@@ -44,21 +44,21 @@ func (bs *BackendServer) registerHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	errDb := bs.DB.SetNewUser(registerStruct.Username, string(encoded))
-	if errDb != nil {
+	errDB := bs.DB.SetNewUser(registerStruct.Username, string(encoded))
+	if errDB != nil {
 		var pgErr *pgconn.PgError
-		if errors.As(errDb, &pgErr) {
+		if errors.As(errDB, &pgErr) {
 			if pgerrcode.IsIntegrityConstraintViolation(pgErr.Code) {
 				log.Println("Impossible to add user to DB, username is already exists.")
 				http.Error(w, "Username is already used.", http.StatusConflict)
 				return
 			}
-			http.Error(w, errDb.Error(), http.StatusBadRequest)
-			log.Println("Impossible to add user to DB, error: ", errDb.Error())
+			http.Error(w, errDB.Error(), http.StatusBadRequest)
+			log.Println("Impossible to add user to DB, error: ", errDB.Error())
 			return
 		}
-		http.Error(w, errDb.Error(), http.StatusInternalServerError)
-		log.Println(http.StatusText(http.StatusInternalServerError), errDb.Error())
+		http.Error(w, errDB.Error(), http.StatusInternalServerError)
+		log.Println(http.StatusText(http.StatusInternalServerError), errDB.Error())
 		return
 	}
 
@@ -102,7 +102,7 @@ func (bs *BackendServer) loginHandler(w http.ResponseWriter, r *http.Request) {
 	ok, errDecode := argon2.VerifyEncoded([]byte(authUser.Password), []byte(pass))
 	if errDecode != nil {
 		http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
-		log.Println(errUser.Error())
+		log.Println(errDecode.Error())
 		return
 	}
 
@@ -150,7 +150,7 @@ func (bs *BackendServer) postOrdersHandler(w http.ResponseWriter, r *http.Reques
 		var pgErr *pgconn.PgError
 		if errors.As(errSetOrder, &pgErr) {
 			if pgerrcode.IsIntegrityConstraintViolation(pgErr.Code) {
-				order, errGetOrder := bs.DB.GetOrderById(string(orderNum))
+				order, errGetOrder := bs.DB.GetOrderByID(string(orderNum))
 				if errGetOrder != nil {
 					http.Error(w, http.StatusText(http.StatusBadGateway), http.StatusBadGateway)
 					return
@@ -184,7 +184,6 @@ func (bs *BackendServer) postOrdersHandler(w http.ResponseWriter, r *http.Reques
 		http.Error(w, http.StatusText(http.StatusBadGateway), http.StatusBadGateway)
 		return
 	}
-	return
 
 }
 
@@ -192,7 +191,7 @@ func (bs *BackendServer) getOrdersHandler(w http.ResponseWriter, r *http.Request
 
 	ui := r.Header.Get("Gopher-User-Id")
 
-	orders, errOrders := bs.DB.GetOrderByUserId(ui)
+	orders, errOrders := bs.DB.GetOrderByUserID(ui)
 	if errOrders != nil {
 		http.Error(w, http.StatusText(http.StatusBadGateway), http.StatusBadGateway)
 		return
@@ -214,7 +213,7 @@ func (bs *BackendServer) getOrdersHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	_, errResp := fmt.Fprintf(w, string(body))
+	_, errResp := fmt.Fprint(w, string(body))
 	if errResp != nil {
 		http.Error(w, http.StatusText(http.StatusBadGateway), http.StatusBadGateway)
 		return
@@ -224,7 +223,7 @@ func (bs *BackendServer) getOrdersHandler(w http.ResponseWriter, r *http.Request
 func (bs *BackendServer) getBalanceHandler(w http.ResponseWriter, r *http.Request) {
 	ui := r.Header.Get("Gopher-User-Id")
 
-	balance, errBalance := bs.DB.GetBalanceByUserId(ui)
+	balance, errBalance := bs.DB.GetBalanceByUserID(ui)
 	if errBalance != nil {
 		return
 	}
@@ -235,7 +234,7 @@ func (bs *BackendServer) getBalanceHandler(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	_, errResp := fmt.Fprintf(w, string(body))
+	_, errResp := fmt.Fprint(w, string(body))
 	if errResp != nil {
 		http.Error(w, http.StatusText(http.StatusBadGateway), http.StatusBadGateway)
 		return
@@ -246,8 +245,8 @@ func (bs *BackendServer) getBalanceHandler(w http.ResponseWriter, r *http.Reques
 func (bs *BackendServer) withdrawHandler(w http.ResponseWriter, r *http.Request) {
 
 	var withdraw struct {
-		order string
-		sum   int
+		Order string `json:"order"`
+		Sum   int    `json:"sum"`
 	}
 
 	ui := r.Header.Get("Gopher-User-Id")
@@ -266,7 +265,7 @@ func (bs *BackendServer) withdrawHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	orders, errOrder := bs.DB.GetOrderById(withdraw.order)
+	orders, errOrder := bs.DB.GetOrderByID(withdraw.Order)
 
 	if errOrder != nil {
 		http.Error(w, http.StatusText(http.StatusBadGateway), http.StatusBadGateway)
@@ -278,7 +277,7 @@ func (bs *BackendServer) withdrawHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	errSum := bs.DB.BuyOrder(strconv.Itoa(withdraw.sum), ui)
+	errSum := bs.DB.BuyOrder(strconv.Itoa(withdraw.Sum), ui)
 
 	if errSum != nil {
 		if errors.Is(errSum, customerror.ErrNotEnoughMoney) {

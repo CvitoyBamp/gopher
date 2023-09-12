@@ -172,7 +172,7 @@ func (pg *Postgres) SetOrder(orderid, userid string) error {
 	return nil
 }
 
-func (pg *Postgres) GetOrderById(orderid string) (model.Order, error) {
+func (pg *Postgres) GetOrderByID(orderid string) (model.Order, error) {
 
 	var order model.Order
 
@@ -190,7 +190,7 @@ func (pg *Postgres) GetOrderById(orderid string) (model.Order, error) {
 	return order, nil
 }
 
-func (pg *Postgres) GetOrderByUserId(userid string) ([]model.Order, error) {
+func (pg *Postgres) GetOrderByUserID(userid string) ([]model.Order, error) {
 
 	var order model.Order
 	var orders []model.Order
@@ -216,7 +216,7 @@ func (pg *Postgres) GetOrderByUserId(userid string) ([]model.Order, error) {
 	return orders, nil
 }
 
-func (pg *Postgres) GetBalanceByUserId(userid string) (model.Balance, error) {
+func (pg *Postgres) GetBalanceByUserID(userid string) (model.Balance, error) {
 
 	var balance model.Balance
 
@@ -257,12 +257,4 @@ func (pg *Postgres) BuyOrder(sum, userid string) error {
 	}
 
 	return nil
-}
-
-func (pg *Postgres) Ping(ctx context.Context) error {
-	return pg.Ping(ctx)
-}
-
-func (pg *Postgres) Close() {
-	pg.Close()
 }

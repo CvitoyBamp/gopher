@@ -2,7 +2,6 @@ package config
 
 import (
 	"flag"
-	"fmt"
 	"github.com/caarlos0/env/v9"
 	"log"
 )
@@ -24,7 +23,7 @@ func init() {
 
 	flag.VisitAll(func(f *flag.Flag) {
 		if f.Value.String() == "" {
-			log.Fatal(fmt.Sprintf("Flag \"-%s\" not set! It's necessary! Check --help flag.", f.Name))
+			log.Fatalf("Flag \"-%s\" not set! It's necessary! Check --help flag.", f.Name)
 		}
 	})
 

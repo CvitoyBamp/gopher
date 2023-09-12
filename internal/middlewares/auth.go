@@ -45,8 +45,8 @@ func VerifyMiddleware(db *database.Postgres) func(next http.Handler) http.Handle
 
 			username, password := token.PrivateClaims()["username"], token.PrivateClaims()["password"]
 
-			userId, pass, errDb := db.GetUserData(username.(string))
-			if errDb != nil {
+			userID, pass, errDB := db.GetUserData(username.(string))
+			if errDB != nil {
 				http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 				return
 			}
@@ -62,7 +62,7 @@ func VerifyMiddleware(db *database.Postgres) func(next http.Handler) http.Handle
 				return
 			}
 
-			r.Header.Set("Gopher-User-Id", strconv.Itoa(userId))
+			r.Header.Set("Gopher-User-Id", strconv.Itoa(userID))
 
 			next.ServeHTTP(w, r)
 

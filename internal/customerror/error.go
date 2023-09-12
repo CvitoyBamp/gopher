@@ -3,5 +3,5 @@ package customerror
 import "errors"
 
 var (
-	ErrNotEnoughMoney = errors.New("Not enough money")
+	ErrNotEnoughMoney = errors.New("not enough money")
 )
