@@ -1,3 +1,7 @@
 package main
 
-func main() {}
+import "github.com/CvitoyBamp/gopher/internal/server"
+
+func main() {
+	server.StartService()
+}
