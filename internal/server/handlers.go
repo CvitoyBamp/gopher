@@ -67,7 +67,7 @@ func (bs *BackendServer) registerHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	setCookie(w, token)
+	w.Header().Set("Authorization", fmt.Sprintf("Bearer %s", token))
 
 	_, errResp := fmt.Fprintf(w, "Successfully registred, your Bearer token: %s", token)
 	if errResp != nil {
@@ -118,7 +118,7 @@ func (bs *BackendServer) loginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	setCookie(w, token)
+	w.Header().Set("Authorization", fmt.Sprintf("Bearer %s", token))
 
 	_, errResp := fmt.Fprintf(w, "Successfully authorized, your refreshed Bearer token: %s", token)
 	if errResp != nil {

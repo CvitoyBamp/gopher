@@ -1,6 +1,7 @@
 package middlewares
 
 import (
+	"fmt"
 	"github.com/CvitoyBamp/gopher/internal/database"
 	privateJWT "github.com/CvitoyBamp/gopher/internal/jwt"
 	"github.com/go-chi/jwtauth/v5"
@@ -24,22 +25,22 @@ func VerifyMiddleware(db *database.Postgres) func(next http.Handler) http.Handle
 				return
 			}
 
-			//if r.Header.Get("Authorization") == "" {
-			//	http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
-			//	return
-			//}
-
-			cookie, errCookie := r.Cookie("jwt")
-			if errCookie != nil {
+			if r.Header.Get("Authorization") == "" {
 				http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 				return
 			}
 
-			//token, err := privateJWT.TokenAuth.Decode(jwtauth.TokenFromHeader(r))
-
-			token, err := privateJWT.TokenAuth.Decode(cookie.Value)
+			//cookie, errCookie := r.Cookie("jwt")
+			//if errCookie != nil {
+			//	http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+			//	return
+			//}
 
 			jwtauth.Verifier(privateJWT.TokenAuth)
+
+			token, err := privateJWT.TokenAuth.Decode(jwtauth.TokenFromHeader(r))
+
+			//token, err := privateJWT.TokenAuth.Decode(cookie.Value)
 
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusUnauthorized)
@@ -71,6 +72,7 @@ func VerifyMiddleware(db *database.Postgres) func(next http.Handler) http.Handle
 			}
 
 			r.Header.Set("Gopher-User-Id", strconv.Itoa(userID))
+			w.Header().Set("Authorization", fmt.Sprintf("Bearer %s", token))
 
 			next.ServeHTTP(w, r)
 
