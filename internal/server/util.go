@@ -1,5 +1,10 @@
 package server
 
+import (
+	"net/http"
+	"time"
+)
+
 func checkLuhn(orderNum string) bool {
 	sum := 0
 	nDigits := len(orderNum)
@@ -16,4 +21,14 @@ func checkLuhn(orderNum string) bool {
 	}
 
 	return sum%10 == 0
+}
+
+func setCookie(w http.ResponseWriter, token string) {
+	http.SetCookie(w, &http.Cookie{
+		HttpOnly: true,
+		Expires:  time.Now().Add(2 * time.Hour),
+		SameSite: http.SameSiteLaxMode,
+		Name:     "jwt",
+		Value:    token,
+	})
 }

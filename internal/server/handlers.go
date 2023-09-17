@@ -13,8 +13,6 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"reflect"
-	"strconv"
 )
 
 func (bs *BackendServer) registerHandler(w http.ResponseWriter, r *http.Request) {
@@ -69,6 +67,8 @@ func (bs *BackendServer) registerHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	setCookie(w, token)
+
 	_, errResp := fmt.Fprintf(w, "Successfully registred, your Bearer token: %s", token)
 	if errResp != nil {
 		log.Println("Error while response after registration, error: ", errResp.Error())
@@ -117,6 +117,8 @@ func (bs *BackendServer) loginHandler(w http.ResponseWriter, r *http.Request) {
 		log.Println("Can't create Bearer token", errJWT.Error())
 		return
 	}
+
+	setCookie(w, token)
 
 	_, errResp := fmt.Fprintf(w, "Successfully authorized, your refreshed Bearer token: %s", token)
 	if errResp != nil {
@@ -244,10 +246,7 @@ func (bs *BackendServer) getBalanceHandler(w http.ResponseWriter, r *http.Reques
 
 func (bs *BackendServer) withdrawHandler(w http.ResponseWriter, r *http.Request) {
 
-	var withdraw struct {
-		Order string `json:"order"`
-		Sum   int    `json:"sum"`
-	}
+	var withdraw model.Withdrawn
 
 	ui := r.Header.Get("Gopher-User-Id")
 
@@ -265,19 +264,18 @@ func (bs *BackendServer) withdrawHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	orders, errOrder := bs.DB.GetOrderByID(withdraw.Order)
+	order, errOrder := bs.DB.GetOrderByID(withdraw.Orderid)
 
 	if errOrder != nil {
-		http.Error(w, http.StatusText(http.StatusBadGateway), http.StatusBadGateway)
-		return
-	}
-
-	if reflect.ValueOf(orders).IsZero() {
+		if errOrder != errors.New("no rows in result set") {
+			http.Error(w, http.StatusText(http.StatusBadGateway), http.StatusBadGateway)
+			return
+		}
 		http.Error(w, http.StatusText(http.StatusUnprocessableEntity), http.StatusUnprocessableEntity)
 		return
 	}
 
-	errSum := bs.DB.BuyOrder(strconv.Itoa(withdraw.Sum), ui)
+	errSum := bs.DB.BuyOrder(order.Orderid, withdraw.Sum, ui)
 
 	if errSum != nil {
 		if errors.Is(errSum, customerror.ErrNotEnoughMoney) {
@@ -290,5 +288,28 @@ func (bs *BackendServer) withdrawHandler(w http.ResponseWriter, r *http.Request)
 }
 
 func (bs *BackendServer) withdrawalsHandlers(w http.ResponseWriter, r *http.Request) {
+	ui := r.Header.Get("Gopher-User-Id")
+
+	withdrawns, errDB := bs.DB.GetWithdrawn(ui)
+	if errDB != nil {
+		if errDB != errors.New("no rows in result set") {
+			http.Error(w, http.StatusText(http.StatusBadGateway), http.StatusBadGateway)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	body, errMarshall := json.Marshal(withdrawns)
+	if errMarshall != nil {
+		http.Error(w, http.StatusText(http.StatusBadGateway), http.StatusBadGateway)
+		return
+	}
+
+	_, errResp := fmt.Fprint(w, string(body))
+	if errResp != nil {
+		http.Error(w, http.StatusText(http.StatusBadGateway), http.StatusBadGateway)
+		return
+	}
 
 }

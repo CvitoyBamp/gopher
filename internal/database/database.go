@@ -35,6 +35,14 @@ var (
         accrual   numeric,
         timestamp timestamp,
         UNIQUE    (orderid))`
+
+	withdrawnTable = `CREATE TABLE IF NOT EXISTS withdrawn(
+        id        serial PRIMARY KEY,
+        userid    bigint NOT NULL REFERENCES users (id),
+        orderid   bigint NOT NULL REFERENCES orders (orderid),
+        sum       numeric,
+        timestamp timestamp,
+        UNIQUE    (orderid))`
 )
 
 type Postgres struct {
@@ -97,6 +105,11 @@ func (pg *Postgres) CreateTables() error {
 	_, errBalance := pg.conn.Exec(ctx, userBalanceTable)
 	if errBalance != nil {
 		return fmt.Errorf("balance table did't create, error: %v", errBalance)
+	}
+
+	_, errWithdrawn := pg.conn.Exec(ctx, withdrawnTable)
+	if errWithdrawn != nil {
+		return fmt.Errorf("withdrawn table did't create, error: %v", errWithdrawn)
 	}
 
 	return nil
@@ -163,10 +176,10 @@ func (pg *Postgres) SetOrder(orderid, userid string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	_, err := pg.conn.Exec(ctx, `INSERT INTO orders (orderid, userid, status, accrual, timestamp)
+	_, errNoAdd := pg.conn.Exec(ctx, `INSERT INTO orders (orderid, userid, status, accrual, timestamp)
 	                       VALUES ($1, $2, $3, $4, $5)`, orderid, userid, "NEW", nil, time.Now().Format(time.RFC3339))
-	if err != nil {
-		return err
+	if errNoAdd != nil {
+		return errNoAdd
 	}
 
 	return nil
@@ -198,7 +211,7 @@ func (pg *Postgres) GetOrderByUserID(userid string) ([]model.Order, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	ors, errQuery := pg.conn.Query(ctx, `select orderid, status, accrual, timestamp from orders where userid = $1`, userid)
+	ors, errQuery := pg.conn.Query(ctx, `select orderid, status, accrual, timestamp from orders where userid = $1 order by timestamp desc`, userid)
 
 	if errQuery != nil {
 		return orders, errQuery
@@ -234,12 +247,18 @@ func (pg *Postgres) GetBalanceByUserID(userid string) (model.Balance, error) {
 	return balance, nil
 }
 
-func (pg *Postgres) BuyOrder(sum, userid string) error {
+func (pg *Postgres) BuyOrder(orderID, sum, userid string) error {
 
 	var enough bool
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
+
+	tx, errTx := pg.conn.Begin(ctx)
+	if errTx != nil {
+		return errTx
+	}
+	defer tx.Rollback(ctx)
 
 	row := pg.conn.QueryRow(ctx, "SELECT (currentbalance >= $1) FROM balance WHERE userid = $2", sum, userid)
 	errScan := row.Scan(&enough)
@@ -256,5 +275,95 @@ func (pg *Postgres) BuyOrder(sum, userid string) error {
 		return errUpdate
 	}
 
+	_, errNoAdd := pg.conn.Exec(ctx, `INSERT INTO withdrawn (orderid, userid, sum, timestamp)
+	                       VALUES ($1, $2, $3, $4)`, orderID, userid, sum, time.Now().Format(time.RFC3339))
+	if errNoAdd != nil {
+		return errNoAdd
+	}
+
+	errCommit := tx.Commit(ctx)
+	if errCommit != nil {
+		return errCommit
+	}
+
 	return nil
+}
+
+func (pg *Postgres) ParseAccrualByStatus(status string) ([]model.Accrual, error) {
+
+	var accrual model.Accrual
+	var accruals []model.Accrual
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	orderIDs, errQuery := pg.conn.Query(ctx, `select orderid, status, accrual from orders where status = $1`, status)
+
+	if errQuery != nil {
+		return accruals, errQuery
+	}
+
+	for orderIDs.Next() {
+		errScan := orderIDs.Scan(&accrual.Orderid, &accrual.Status, &accrual.Accrual)
+		if errScan != nil {
+			return accruals, errScan
+		}
+
+		accruals = append(accruals, accrual)
+	}
+
+	return accruals, nil
+}
+
+func (pg *Postgres) GetAccrual(orderID string) (model.Accrual, error) {
+
+	var accrual model.Accrual
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	row := pg.conn.QueryRow(ctx, `select orderid, status, accrual from orders where orderid = $1`, orderID)
+
+	errQuery := row.Scan(&accrual.Orderid, &accrual.Status, &accrual.Accrual)
+
+	if errQuery != nil {
+		return accrual, errQuery
+	}
+
+	return accrual, nil
+}
+
+func (pg *Postgres) UpdateAccrual(acc model.Accrual) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	_, errNoAdd := pg.conn.Exec(ctx, `UPDATE orders SET status = $1, accrual = $2, timestamp = $3 WHERE orderid = $4`,
+		acc.Status, acc.Accrual, time.Now().Format(time.RFC3339), acc.Orderid)
+	if errNoAdd != nil {
+		return errNoAdd
+	}
+
+	return nil
+}
+
+func (pg *Postgres) GetWithdrawn(userid string) (model.Withdrawn, error) {
+	var withdrawn model.Withdrawn
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	rows, errQuery := pg.conn.Query(ctx, `select orderid, sum, timestamp from orders where userid = $1 order by timestamp`, userid)
+
+	if errQuery != nil {
+		return withdrawn, errQuery
+	}
+
+	for rows.Next() {
+		errScan := rows.Scan(&withdrawn.Orderid, &withdrawn.Sum, &withdrawn.Timestamp)
+		if errScan != nil {
+			return withdrawn, errScan
+		}
+	}
+
+	return withdrawn, nil
 }

@@ -4,6 +4,14 @@ import (
 	"time"
 )
 
+const (
+	StatusNEW        = "NEW"
+	StatusREGISTERED = "REGISTERED"
+	StatusINVALID    = "INVALID"
+	StatusPROCESSING = "PROCESSING"
+	StatusPROCESSED  = "PROCESSED"
+)
+
 type Register struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
@@ -15,6 +23,19 @@ type Order struct {
 	Status    string    `json:"status,omitempty"`
 	Accrual   *string   `json:"accrual,omitempty"`
 	Timestamp time.Time `json:"uploaded_at,omitempty"`
+}
+
+type Withdrawn struct {
+	Userid    string    `json:"userid,omitempty"`
+	Orderid   string    `json:"order,omitempty"`
+	Sum       string    `json:"sum,omitempty"`
+	Timestamp time.Time `json:"processed_at,omitempty"`
+}
+
+type Accrual struct {
+	Orderid string  `json:"order,omitempty"`
+	Status  string  `json:"status,omitempty"`
+	Accrual *string `json:"accrual,omitempty"`
 }
 
 type Balance struct {

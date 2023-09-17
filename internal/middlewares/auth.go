@@ -24,14 +24,22 @@ func VerifyMiddleware(db *database.Postgres) func(next http.Handler) http.Handle
 				return
 			}
 
-			if r.Header.Get("Authorization") == "" {
+			//if r.Header.Get("Authorization") == "" {
+			//	http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+			//	return
+			//}
+
+			cookie, errCookie := r.Cookie("jwt")
+			if errCookie != nil {
 				http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 				return
 			}
 
-			jwtauth.Verifier(privateJWT.TokenAuth)
+			//token, err := privateJWT.TokenAuth.Decode(jwtauth.TokenFromHeader(r))
 
-			token, err := privateJWT.TokenAuth.Decode(jwtauth.TokenFromHeader(r))
+			token, err := privateJWT.TokenAuth.Decode(cookie.Value)
+
+			jwtauth.Verifier(privateJWT.TokenAuth)
 
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusUnauthorized)

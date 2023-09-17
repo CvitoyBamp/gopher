@@ -15,7 +15,7 @@ type BackendServer struct {
 
 var cfg = config.Config
 
-func defaultBackendServer() (*BackendServer, error) {
+func DefaultBackendServer(createTables bool) (*BackendServer, error) {
 	dbConfig, err := database.PGConfigParser(cfg.DatabaseURI)
 	if err != nil {
 		return nil, err
@@ -23,9 +23,11 @@ func defaultBackendServer() (*BackendServer, error) {
 
 	dbInstance := database.NewPostgresInstance(context.Background(), dbConfig)
 
-	errTables := dbInstance.CreateTables()
-	if errTables != nil {
-		return nil, errTables
+	if createTables {
+		errTables := dbInstance.CreateTables()
+		if errTables != nil {
+			return nil, errTables
+		}
 	}
 
 	return &BackendServer{
@@ -35,7 +37,7 @@ func defaultBackendServer() (*BackendServer, error) {
 }
 
 func StartService() {
-	srv, err := defaultBackendServer()
+	srv, err := DefaultBackendServer(true)
 	if err != nil {
 		log.Fatalf("can't server, error: %v", err)
 	}
