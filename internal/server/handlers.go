@@ -13,6 +13,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strconv"
 )
 
 func (bs *BackendServer) registerHandler(w http.ResponseWriter, r *http.Request) {
@@ -215,6 +216,8 @@ func (bs *BackendServer) getOrdersHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	w.Header().Set("Content-Type", "application/json")
+
 	_, errResp := fmt.Fprint(w, string(body))
 	if errResp != nil {
 		http.Error(w, http.StatusText(http.StatusBadGateway), http.StatusBadGateway)
@@ -235,6 +238,8 @@ func (bs *BackendServer) getBalanceHandler(w http.ResponseWriter, r *http.Reques
 		http.Error(w, http.StatusText(http.StatusBadGateway), http.StatusBadGateway)
 		return
 	}
+
+	w.Header().Set("Content-Type", "application/json")
 
 	_, errResp := fmt.Fprint(w, string(body))
 	if errResp != nil {
@@ -267,7 +272,7 @@ func (bs *BackendServer) withdrawHandler(w http.ResponseWriter, r *http.Request)
 	order, errOrder := bs.DB.GetOrderByID(withdraw.Orderid)
 
 	if errOrder != nil {
-		if errOrder != errors.New("no rows in result set") {
+		if errOrder.Error() != "no rows in result set" {
 			http.Error(w, http.StatusText(http.StatusBadGateway), http.StatusBadGateway)
 			return
 		}
@@ -275,13 +280,19 @@ func (bs *BackendServer) withdrawHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	errSum := bs.DB.BuyOrder(order.Orderid, withdraw.Sum, ui)
+	errSum := bs.DB.BuyOrder(order.Orderid, strconv.Itoa(withdraw.Sum), ui)
 
 	if errSum != nil {
 		if errors.Is(errSum, customerror.ErrNotEnoughMoney) {
 			http.Error(w, http.StatusText(http.StatusPaymentRequired), http.StatusPaymentRequired)
 			return
 		}
+
+		if errOrder.Error() != "no rows in result set" {
+			http.Error(w, http.StatusText(http.StatusUnprocessableEntity), http.StatusUnprocessableEntity)
+			return
+		}
+
 		http.Error(w, http.StatusText(http.StatusBadGateway), http.StatusBadGateway)
 		return
 	}
@@ -292,7 +303,7 @@ func (bs *BackendServer) withdrawalsHandlers(w http.ResponseWriter, r *http.Requ
 
 	withdrawns, errDB := bs.DB.GetWithdrawn(ui)
 	if errDB != nil {
-		if errDB != errors.New("no rows in result set") {
+		if errDB.Error() != "no rows in result set" {
 			http.Error(w, http.StatusText(http.StatusBadGateway), http.StatusBadGateway)
 			return
 		}
@@ -305,6 +316,8 @@ func (bs *BackendServer) withdrawalsHandlers(w http.ResponseWriter, r *http.Requ
 		http.Error(w, http.StatusText(http.StatusBadGateway), http.StatusBadGateway)
 		return
 	}
+
+	w.Header().Set("Content-Type", "application/json")
 
 	_, errResp := fmt.Fprint(w, string(body))
 	if errResp != nil {

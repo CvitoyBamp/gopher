@@ -90,6 +90,8 @@ func (as *AccrualService) accrualCalc(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	w.Header().Set("Content-Type", "application/json")
+
 	_, errResp := fmt.Fprint(w, string(body))
 	if errResp != nil {
 		http.Error(w, http.StatusText(http.StatusBadGateway), http.StatusBadGateway)

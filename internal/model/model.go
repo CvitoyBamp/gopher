@@ -28,7 +28,7 @@ type Order struct {
 type Withdrawn struct {
 	Userid    string    `json:"userid,omitempty"`
 	Orderid   string    `json:"order,omitempty"`
-	Sum       string    `json:"sum,omitempty"`
+	Sum       int       `json:"sum,omitempty"`
 	Timestamp time.Time `json:"processed_at,omitempty"`
 }
 

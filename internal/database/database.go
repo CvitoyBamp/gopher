@@ -22,8 +22,8 @@ var (
 
 	userBalanceTable = `CREATE TABLE IF NOT EXISTS balance(
         userid           bigint NOT NULL REFERENCES users (id),
-        currentbalance   numeric,
-        withdrawn        numeric,
+        currentbalance   numeric(8, 5),
+        withdrawn        numeric(8, 5),
         timestamp timestamp,
         UNIQUE (userid))`
 
@@ -32,7 +32,7 @@ var (
         orderid   bigint NOT NULL,
         userid    bigint NOT NULL REFERENCES users (id),
         status    text NOT NULL check (status in ('NEW', 'PROCESSING', 'INVALID', 'PROCESSED')),
-        accrual   numeric,
+        accrual   numeric(8, 5),
         timestamp timestamp,
         UNIQUE    (orderid))`
 
@@ -40,7 +40,7 @@ var (
         id        serial PRIMARY KEY,
         userid    bigint NOT NULL REFERENCES users (id),
         orderid   bigint NOT NULL REFERENCES orders (orderid),
-        sum       numeric,
+        sum       numeric(8, 5),
         timestamp timestamp,
         UNIQUE    (orderid))`
 )
@@ -270,7 +270,7 @@ func (pg *Postgres) BuyOrder(orderID, sum, userid string) error {
 		return customerror.ErrNotEnoughMoney
 	}
 
-	_, errUpdate := pg.conn.Exec(ctx, `UPDATE balance SET currentbalance = currentbalance - $1, withdrawn = withdrawn + $1 where userid = $2`)
+	_, errUpdate := pg.conn.Exec(ctx, `UPDATE balance SET currentbalance = currentbalance - $1, withdrawn = withdrawn + $1 where userid = $2`, sum, userid)
 	if errUpdate != nil {
 		return errUpdate
 	}
